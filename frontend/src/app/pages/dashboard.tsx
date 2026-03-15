@@ -26,9 +26,10 @@ export function DashboardPage(){
 const [expenses,setExpenses]=useState<Expense[]>([])
 const [title,setTitle]=useState("")
 const [category,setCategory]=useState("")
-const [amount,setAmount]=useState<number>(0)
+const [amount,setAmount]=useState<string>("")
 const [showModal,setShowModal]=useState(false)
 const [filter,setFilter]=useState("all")
+const [error,setError]=useState("")
 
 useEffect(()=>{
 loadExpenses()
@@ -56,21 +57,35 @@ setExpenses([])
 }
 
 async function addExpense(){
+setError("")
+if(!title.trim()||!category.trim()||!amount.trim()){
+setError("Please fill in all fields")
+return
+}
 const token=getToken()
-await fetch("http://127.0.0.1:8000/expenses",{
+try{
+const res=await fetch("http://127.0.0.1:8000/expenses",{
 method:"POST",
 headers:{
 "Content-Type":"application/json",
 Authorization:`Bearer ${token}`
 },
-body:JSON.stringify({title,category,amount})
+body:JSON.stringify({title:title.trim(),category:category.trim(),amount:parseFloat(amount)})
 })
-
+if(!res.ok){
+const err=await res.json()
+setError(err.detail||"Failed to save expense")
+return
+}
 setTitle("")
 setCategory("")
-setAmount(0)
+setAmount("")
+setError("")
 setShowModal(false)
 loadExpenses()
+}catch(err){
+setError("Network error. Is the backend running?")
+}
 }
 
 async function deleteExpense(id:number){
@@ -198,7 +213,7 @@ Real-time financial analytics
 </select>
 
 <button
-onClick={()=>setShowModal(true)}
+onClick={()=>{setShowModal(true);setError("")}}
 className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg"
 >
 
@@ -423,13 +438,17 @@ className="text-red-400"
 
 {showModal && (
 
-<div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+<div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
 
 <div className="bg-slate-900 p-6 rounded-xl space-y-4 w-80">
 
 <h3 className="text-lg text-white font-semibold">
 Add Expense
 </h3>
+
+{error && (
+<p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded px-3 py-2">{error}</p>
+)}
 
 <input
 className="border p-2 w-full bg-transparent text-white"
@@ -450,7 +469,7 @@ type="number"
 className="border p-2 w-full bg-transparent text-white"
 placeholder="Amount"
 value={amount}
-onChange={(e)=>setAmount(Number(e.target.value))}
+onChange={(e)=>setAmount(e.target.value)}
 />
 
 <div className="flex gap-2">

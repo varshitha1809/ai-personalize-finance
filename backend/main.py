@@ -91,13 +91,11 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @app.post("/expenses")
 def add_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db), user_id: int = Depends(get_current_user)):
-
-    new_expense = models.Expense(**expense.dict(), user_id=user_id)
-
+    from datetime import date
+    new_expense = models.Expense(**expense.dict(), user_id=user_id, date=date.today().isoformat())
     db.add(new_expense)
     db.commit()
     db.refresh(new_expense)
-
     return new_expense
 
 
@@ -269,6 +267,48 @@ def get_groups(db: Session = Depends(get_db), user_id: int = Depends(get_current
             "settled": settled
         })
     return result
+
+
+@app.get("/groups/{group_id}/expenses")
+def get_group_expenses(
+    group_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    expenses = db.query(models.GroupExpense).filter(models.GroupExpense.group_id == group_id).all()
+    members = db.query(models.GroupMember).filter(models.GroupMember.group_id == group_id).count()
+    result = []
+    for e in expenses:
+        payer = db.query(models.User).filter(models.User.id == e.paid_by).first()
+        result.append({
+            "id": e.id,
+            "title": e.title,
+            "amount": e.amount,
+            "paid_by_name": payer.name if payer else f"User {e.paid_by}",
+            "paid_by": e.paid_by,
+            "per_person": round(e.amount / members, 2) if members else e.amount,
+            "settled": bool(e.settled),
+            "members": members
+        })
+    return result
+
+
+@app.patch("/groups/{group_id}/expenses/{expense_id}/settle")
+def settle_expense(
+    group_id: int,
+    expense_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+    e = db.query(models.GroupExpense).filter(
+        models.GroupExpense.id == expense_id,
+        models.GroupExpense.group_id == group_id
+    ).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    e.settled = 1
+    db.commit()
+    return {"message": "settled"}
 
 
 @app.post("/groups/{group_id}/expenses")

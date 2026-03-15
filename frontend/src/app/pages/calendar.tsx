@@ -25,10 +25,13 @@ export function CalendarPage() {
   const daysInMonth = getDaysInMonth(currentMonth, currentYear);
   const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
 
-  // Map expenses to day numbers (expenses have no date field, so we spread them across days for display)
-  // Since Expense model has no date, we group by id % daysInMonth as a fallback
+  // Group expenses by the day of their date field (YYYY-MM-DD)
   const getEventsForDay = (day: number) =>
-    expenses.filter(e => (e.id % daysInMonth) + 1 === day);
+    expenses.filter(e => {
+      if (!e.date) return false;
+      const d = new Date(e.date);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth && d.getDate() === day;
+    });
 
   const nextMonth = () => {
     if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); }
@@ -43,7 +46,11 @@ export function CalendarPage() {
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyDays = Array.from({ length: firstDay }, (_, i) => i);
 
-  const upcomingExpenses = expenses.slice(0, 5);
+  const currentMonthExpenses = expenses.filter(e => {
+    if (!e.date) return false;
+    const d = new Date(e.date);
+    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+  });
 
   return (
     <div className="space-y-8">
@@ -105,12 +112,12 @@ export function CalendarPage() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Your Expenses</h3>
-        {upcomingExpenses.length === 0 ? (
-          <p className="text-slate-500">No expenses yet.</p>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Expenses in {monthNames[currentMonth]}</h3>
+        {currentMonthExpenses.length === 0 ? (
+          <p className="text-slate-500">No expenses this month.</p>
         ) : (
           <div className="space-y-3">
-            {upcomingExpenses.map((e, i) => (
+            {currentMonthExpenses.map((e, i) => (
               <div key={i} className="p-4 rounded-xl bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/10 backdrop-blur-xl hover:border-indigo-500/50 transition-all">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -119,7 +126,7 @@ export function CalendarPage() {
                     </div>
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">{e.title}</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{e.category}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">{e.category} • {e.date}</p>
                     </div>
                   </div>
                   <p className="text-lg font-semibold text-red-600 dark:text-red-400">-₹{e.amount.toLocaleString()}</p>

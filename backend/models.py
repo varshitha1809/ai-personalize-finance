@@ -21,6 +21,7 @@ class Expense(Base):
     title = Column(String)
     category = Column(String)
     amount = Column(Float)
+    date = Column(String, default="")
 
 
 class Receipt(Base):
